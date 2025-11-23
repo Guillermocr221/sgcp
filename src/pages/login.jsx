@@ -1,6 +1,9 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { authenticate, setUserInStorage } from "../lib/auth"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faShip } from "@fortawesome/free-solid-svg-icons"
+import { setUserInStorage } from "../lib/auth"
+import { usuariosAPI } from "../lib/api"
 
 export function Login() {
     const navigate = useNavigate()
@@ -12,35 +15,34 @@ export function Login() {
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError("")
+
+        // Validar campos requeridos
+        if (!username.trim() || !password.trim()) {
+            setError("Usuario y contraseña son requeridos")
+            return
+        }
+
         setLoading(true)
 
         try {
-            const user = authenticate(username, password)
-
-            if (user) {
-                setUserInStorage(user)
+            // Llamar a la API de login
+            const response = await usuariosAPI.login(username.trim(), password)
+            
+            if (response.ok && response.data) {
+                // Guardar usuario en localStorage
+                setUserInStorage(response.data)
+                
+                // Redirigir al dashboard
                 navigate("/dashboard")
             } else {
-                setError("Usuario o contraseña inválidos")
+                setError("Usuario o contraseña incorrectos")
             }
         } catch (err) {
-            setError("Error al iniciar sesión")
+            console.error("Error en login:", err)
+            setError(err.message || "Error al iniciar sesión. Verifique sus credenciales.")
         } finally {
             setLoading(false)
         }
-    }
-
-    const handleDemoLogin = (demoUsername) => {
-        setUsername(demoUsername)
-        setPassword("") // Las cuentas demo no requieren contraseña
-        // Auto-submit con credenciales demo
-        setTimeout(() => {
-            const user = authenticate(demoUsername, "")
-            if (user) {
-                setUserInStorage(user)
-                navigate("/dashboard")
-            }
-        }, 100)
     }
 
     const handleKeyPress = (e) => {
@@ -56,9 +58,7 @@ export function Login() {
                 <div className="space-y-4 text-center p-8 pb-4">
                     <div className="flex justify-center">
                         <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg">
-                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
+                            <FontAwesomeIcon icon={faShip} className="w-8 h-8 text-white" />
                         </div>
                     </div>
                     <div>
@@ -82,6 +82,7 @@ export function Login() {
                                 onChange={(e) => setUsername(e.target.value)}
                                 disabled={loading}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                required
                             />
                         </div>
 
@@ -98,6 +99,7 @@ export function Login() {
                                 disabled={loading}
                                 onKeyPress={handleKeyPress}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                required
                             />
                         </div>
 
@@ -120,30 +122,9 @@ export function Login() {
                     </form>
 
                     <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-center text-xs text-gray-500 mb-4">Cuentas de demostración disponibles</p>
-                        <div className="space-y-2">
-                            <button
-                                onClick={() => handleDemoLogin("admin")}
-                                className="w-full px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 transition-colors duration-200"
-                                disabled={loading}
-                            >
-                                Demo: Admin
-                            </button>
-                            <button
-                                onClick={() => handleDemoLogin("operador")}
-                                className="w-full px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 transition-colors duration-200"
-                                disabled={loading}
-                            >
-                                Demo: Operador
-                            </button>
-                            <button
-                                onClick={() => handleDemoLogin("viewer")}
-                                className="w-full px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 transition-colors duration-200"
-                                disabled={loading}
-                            >
-                                Demo: Viewer
-                            </button>
-                        </div>
+                        <p className="text-center text-sm text-gray-500">
+                            Ingrese sus credenciales para acceder al sistema
+                        </p>
                     </div>
                 </div>
             </div>

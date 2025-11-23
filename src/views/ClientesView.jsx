@@ -1,64 +1,22 @@
-import { useState } from "react"
-
-// Datos simulados
-const initialClientes = [
-  {
-    id: 1,
-    empresa: "Importaciones Chile S.A.",
-    representante: "Juan García",
-    contacto: "+56 9 1234 5678",
-    email: "juan@importaciones.cl",
-  },
-  {
-    id: 2,
-    empresa: "Exportadora del Sur",
-    representante: "María López",
-    contacto: "+56 9 2345 6789",
-    email: "maria@exportadora.cl",
-  },
-  {
-    id: 3,
-    empresa: "Puerto Logística",
-    representante: "Carlos González",
-    contacto: "+56 9 3456 7890",
-    email: "carlos@puerto.cl",
-  },
-  {
-    id: 4,
-    empresa: "Marine Services",
-    representante: "Ana Martínez",
-    contacto: "+56 9 4567 8901",
-    email: "ana@marine.cl",
-  },
-]
+import { useState, useEffect } from "react"
+import { clientesAPI } from "../lib/api"
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus, faEdit, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons'
 
 const IconComponents = {
-  Plus: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
-  ),
-  Edit2: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-  ),
-  Trash2: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  ),
-  X: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
+  Plus: () => <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />,
+  Edit2: () => <FontAwesomeIcon icon={faEdit} className="w-4 h-4" />,
+  Trash2: () => <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />,
+  X: () => <FontAwesomeIcon icon={faTimes} className="w-5 h-5" />
 }
 
 export default function ClientesView() {
-  const [clientes, setClientes] = useState(initialClientes)
+  const [clientes, setClientes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     empresa: "",
     representante: "",
@@ -66,9 +24,43 @@ export default function ClientesView() {
     email: "",
   })
 
+  // Cargar clientes al montar el componente
+  useEffect(() => {
+    cargarClientes()
+  }, [])
+
+  const cargarClientes = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await clientesAPI.obtenerTodos()
+      
+      // Mapear los datos del backend al formato del frontend
+      const clientesFormateados = response.data.map(cliente => ({
+        id: cliente.ID_CLIENTE,
+        empresa: cliente.NOMBRE_EMPRESA, 
+        representante: cliente.REPRESENTANTE || "", 
+        contacto: cliente.CONTACTO || "",
+        email: ""
+      }))
+      
+      setClientes(clientesFormateados)
+    } catch (err) {
+      console.error('Error al cargar clientes:', err)
+      setError('Error al cargar los clientes: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleOpenModal = (cliente) => {
     if (cliente) {
-      setFormData(cliente)
+      setFormData({
+        empresa: cliente.empresa,
+        representante: cliente.representante,
+        contacto: cliente.contacto,
+        email: cliente.email
+      })
       setEditingId(cliente.id)
     } else {
       setFormData({ empresa: "", representante: "", contacto: "", email: "" })
@@ -80,31 +72,90 @@ export default function ClientesView() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingId(null)
+    setFormData({ empresa: "", representante: "", contacto: "", email: "" })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (editingId) {
-      setClientes(clientes.map((c) => (c.id === editingId ? { ...c, ...formData } : c)))
-    } else {
-      setClientes([...clientes, { id: Math.max(...clientes.map((c) => c.id), 0) + 1, ...formData }])
+    
+    try {
+      setSubmitting(true)
+      setError(null)
+      
+      if (editingId) {
+        // Actualizar cliente existente
+        await clientesAPI.actualizar(editingId, formData)
+      } else {
+        // Crear nuevo cliente
+        await clientesAPI.crear(formData)
+      }
+      
+      // Recargar la lista de clientes
+      await cargarClientes()
+      handleCloseModal()
+      
+    } catch (err) {
+      console.error('Error al guardar cliente:', err)
+      setError('Error al guardar el cliente: ' + err.message)
+    } finally {
+      setSubmitting(false)
     }
-    handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (confirm("¿Está seguro de que desea eliminar este cliente?")) {
-      setClientes(clientes.filter((c) => c.id !== id))
+  const handleDelete = async (id, empresa) => {
+    if (!confirm(`¿Está seguro de que desea eliminar el cliente "${empresa}"?`)) {
+      return
     }
+    
+    try {
+      setError(null)
+      await clientesAPI.eliminar(id)
+      await cargarClientes()
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err)
+      setError('Error al eliminar el cliente: ' + err.message)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando clientes...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm text-red-700">{error}</p>
+              <button 
+                onClick={cargarClientes}
+                className="mt-2 text-sm text-red-600 hover:text-red-500 underline"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <p className="text-sm text-gray-600">Total de clientes: {clientes.length}</p>
         <button
           onClick={() => handleOpenModal()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          disabled={submitting}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
         >
           <IconComponents.Plus />
           Nuevo cliente
@@ -123,37 +174,43 @@ export default function ClientesView() {
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Empresa</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Representante</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Contacto</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Email</th>
                   <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {clientes.map((cliente) => (
-                  <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 text-gray-900 font-medium">{cliente.empresa}</td>
-                    <td className="py-3 px-4 text-gray-700">{cliente.representante}</td>
-                    <td className="py-3 px-4 text-gray-600">{cliente.contacto}</td>
-                    <td className="py-3 px-4 text-gray-600 text-xs">{cliente.email}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(cliente)}
-                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <IconComponents.Edit2 />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cliente.id)}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
-                          title="Eliminar"
-                        >
-                          <IconComponents.Trash2 />
-                        </button>
-                      </div>
+                {clientes.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="py-8 text-center text-gray-500">
+                      No hay clientes registrados
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  clientes.map((cliente) => (
+                    <tr key={cliente.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 text-gray-900 font-medium">{cliente.empresa}</td>
+                      <td className="py-3 px-4 text-gray-700">{cliente.representante || '-'}</td>
+                      <td className="py-3 px-4 text-gray-600">{cliente.contacto || '-'}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleOpenModal(cliente)}
+                            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <IconComponents.Edit2 />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(cliente.id, cliente.empresa)}
+                            className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
+                            title="Eliminar"
+                          >
+                            <IconComponents.Trash2 />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -171,6 +228,7 @@ export default function ClientesView() {
               <button 
                 onClick={handleCloseModal} 
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
+                disabled={submitting}
               >
                 <IconComponents.X />
               </button>
@@ -178,62 +236,54 @@ export default function ClientesView() {
             <div className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Empresa</label>
+                  <label className="text-sm font-medium text-gray-700">Empresa *</label>
                   <input
                     required
                     type="text"
                     value={formData.empresa}
                     onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
                     placeholder="Nombre de la empresa"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Representante</label>
                   <input
-                    required
                     type="text"
                     value={formData.representante}
                     onChange={(e) => setFormData({ ...formData, representante: e.target.value })}
                     placeholder="Nombre del representante"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Contacto</label>
                   <input
-                    required
                     type="text"
                     value={formData.contacto}
                     onChange={(e) => setFormData({ ...formData, contacto: e.target.value })}
                     placeholder="+56 9 1234 5678"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="email@ejemplo.com"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+                    disabled={submitting}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                   >
-                    {editingId ? "Actualizar" : "Crear"}
+                    {submitting ? "Guardando..." : (editingId ? "Actualizar" : "Crear")}
                   </button>
                 </div>
               </form>

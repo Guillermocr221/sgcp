@@ -11,6 +11,8 @@ import ContenedoresView from "../views/ContenedoresView"
 import EmbarcacionesView from "../views/EmbarcacionesView"
 import DashboardView from "../views/DashboardView"
 import ClientesView from "../views/ClientesView"
+import LotesView from "../views/LotesView"
+import ProductosView from "../views/ProductosView"
 
 export function Clientes() {
     return (
@@ -38,7 +40,7 @@ export function Dashboard() {
     }
 
     return (
-        <LayoutWrapper title="Dashboard - Reportes">
+        <LayoutWrapper title="Dashboard">
             <DashboardView />
         </LayoutWrapper>
     )
@@ -80,6 +82,22 @@ export function Alertas() {
     return (
         <LayoutWrapper title="Alertas">
             <AlertasView />
+        </LayoutWrapper>
+    )
+}
+
+export function Lotes() {
+    return (
+        <LayoutWrapper title="Lotes">
+            <LotesView />
+        </LayoutWrapper>
+    )
+}
+
+export function Productos() {
+    return (
+        <LayoutWrapper title="Productos">
+            <ProductosView />
         </LayoutWrapper>
     )
 }

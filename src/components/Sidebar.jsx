@@ -2,10 +2,27 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { removeUserFromStorage } from "../lib/auth"
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { 
+  faShip, 
+  faChartLine, 
+  faUserGroup, 
+  faBoxesStacked, 
+  faUser, 
+  faTriangleExclamation,
+  faClipboardList,
+  faTachometerAlt,
+  faBars,
+  faTimes,
+  faSignOutAlt
+} from '@fortawesome/free-solid-svg-icons'
+
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
   { href: "/clientes", label: "Clientes", icon: "Users" },
   { href: "/contenedores", label: "Contenedores", icon: "Package" },
+  { href: "/lotes", label: "Lotes", icon: "Package" },
+  { href: "/productos", label: "Productos", icon: "Package" },
   { href: "/embarcaciones", label: "Embarcaciones", icon: "Ship" },
   { href: "/movimientos", label: "Movimientos", icon: "TrendingUp" },
   { href: "/usuarios", label: "Usuarios", icon: "Users" },
@@ -14,52 +31,15 @@ const navItems = [
 ]
 
 const IconComponents = {
-  LayoutDashboard: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v14l-5-3-5 3V5z" />
-    </svg>
-  ),
-  Users: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a4 4 0 11-8 0 4 4 0 018 0z" />
-    </svg>
-  ),
-  Package: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-  ),
-  Ship: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0016.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 002 8.5c0 2.29 1.51 4.04 3 5.5l6 6 6-6z" />
-    </svg>
-  ),
-  TrendingUp: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-    </svg>
-  ),
-  AlertTriangle: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-    </svg>
-  ),
-  Menu: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  ),
-  X: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  ),
-  LogOut: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-    </svg>
-  )
+  LayoutDashboard: () => <FontAwesomeIcon icon={faTachometerAlt} className="w-5 h-5" />,
+  Users: () => <FontAwesomeIcon icon={faUserGroup} className="w-5 h-5" />,
+  Package: () => <FontAwesomeIcon icon={faBoxesStacked} className="w-5 h-5" />,
+  Ship: () => <FontAwesomeIcon icon={faShip} className="w-5 h-5" />,
+  TrendingUp: () => <FontAwesomeIcon icon={faChartLine} className="w-5 h-5" />,
+  AlertTriangle: () => <FontAwesomeIcon icon={faTriangleExclamation} className="w-5 h-5" />,
+  Menu: () => <FontAwesomeIcon icon={faBars} className="w-5 h-5" />,
+  X: () => <FontAwesomeIcon icon={faTimes} className="w-5 h-5" />,
+  LogOut: () => <FontAwesomeIcon icon={faSignOutAlt} className="w-5 h-5" />
 }
 
 export function Sidebar() {

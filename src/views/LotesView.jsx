@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react"
-import { movimientosAPI, contenedoresAPI } from "../lib/api"
+import { lotesAPI, contenedoresAPI, productosAPI } from "../lib/api"
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlus, faEdit, faTrash, faTimes, faFilter, faArrowRight } from '@fortawesome/free-solid-svg-icons'
-
-const tiposMovimiento = ["Entrada", "Salida", "Carga", "Descarga", "Transferencia", "Inspección"]
+import { faPlus, faEdit, faTrash, faTimes, faFilter, faBox } from '@fortawesome/free-solid-svg-icons'
 
 const IconComponents = {
   Plus: () => <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />,
@@ -11,23 +9,23 @@ const IconComponents = {
   Trash2: () => <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />,
   X: () => <FontAwesomeIcon icon={faTimes} className="w-5 h-5" />,
   Filter: () => <FontAwesomeIcon icon={faFilter} className="w-4 h-4" />,
-  ArrowRight: () => <FontAwesomeIcon icon={faArrowRight} className="w-4 h-4" />
+  Box: () => <FontAwesomeIcon icon={faBox} className="w-4 h-4" />
 }
 
-export default function MovimientosView() {
-  const [movimientos, setMovimientos] = useState([])
+export default function LotesView() {
+  const [lotes, setLotes] = useState([])
   const [contenedores, setContenedores] = useState([])
+  const [productos, setProductos] = useState([]) // Ahora dinámico desde el backend
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [filtroTipo, setFiltroTipo] = useState("Todos")
+  const [filtroContenedor, setFiltroContenedor] = useState("Todos")
   const [formData, setFormData] = useState({
     id_contenedor: "",
-    tipoMovimiento: "Entrada",
-    fechaMovimiento: "",
-    observaciones: "",
+    id_producto: "",
+    cantidad: 1,
   })
 
   // Cargar datos al montar el componente
@@ -35,30 +33,31 @@ export default function MovimientosView() {
     cargarDatos()
   }, [])
 
-  // Filtrar movimientos por tipo
-  const movimientosFiltrados = filtroTipo === "Todos" 
-    ? movimientos 
-    : movimientos.filter(m => m.tipoMovimiento === filtroTipo)
+  // Filtrar lotes por contenedor
+  const lotesFiltrados = filtroContenedor === "Todos" 
+    ? lotes 
+    : lotes.filter(l => l.contenedor === filtroContenedor)
 
   const cargarDatos = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Cargar movimientos y contenedores en paralelo
-      const [movimientosResponse, contenedoresResponse] = await Promise.all([
-        movimientosAPI.obtenerTodos(),
-        contenedoresAPI.obtenerTodos()
+      // Cargar lotes, contenedores y productos en paralelo
+      const [lotesResponse, contenedoresResponse, productosResponse] = await Promise.all([
+        lotesAPI.obtenerTodos(),
+        contenedoresAPI.obtenerTodos(),
+        productosAPI.obtenerTodos()
       ])
 
-      // Mapear movimientos del backend al formato del frontend
-      const movimientosFormateados = movimientosResponse.data.map(movimiento => ({
-        id: movimiento.ID_MOVIMIENTO, // id_movimiento
-        id_contenedor: movimiento.ID_CONTENEDOR, // id_contenedor
-        contenedor: movimiento.CODIGO_CONTENEDOR || "", // codigo_contenedor
-        tipoMovimiento: movimiento.TIPO_MOVIMIENTO || "", // tipo_movimiento
-        fechaMovimiento: movimiento.FECHA_MOVIMIENTO, // fecha_movimiento
-        observaciones: movimiento.OBSERVACIONES || "" // observaciones
+      // Mapear lotes del backend al formato del frontend
+      const lotesFormateados = lotesResponse.data.map(lote => ({
+        id: lote.ID_LOTE, // id_lote
+        id_contenedor: lote.ID_CONTENEDOR, // id_contenedor
+        contenedor: lote.CODIGO_CONTENEDOR || "", // codigo_contenedor
+        id_producto: lote.ID_PRODUCTO, // id_producto
+        producto: lote.PRODUCTO_NOMBRE || "", // producto_nombre
+        cantidad: lote.CANTIDAD || 0 // cantidad
       }))
 
       // Mapear contenedores para el selector
@@ -68,8 +67,16 @@ export default function MovimientosView() {
         cliente: contenedor.CLIENTE_NOMBRE || ""
       }))
 
-      setMovimientos(movimientosFormateados)
+      // Mapear productos para el selector
+      const productosFormateados = productosResponse.data.map(producto => ({
+        id: producto.ID_PRODUCTO,
+        nombre: producto.NOMBRE,
+        tipo: producto.TIPO_PRODUCTO || ""
+      }))
+
+      setLotes(lotesFormateados)
       setContenedores(contenedoresFormateados)
+      setProductos(productosFormateados)
     } catch (err) {
       console.error('Error al cargar datos:', err)
       setError('Error al cargar los datos: ' + err.message)
@@ -78,33 +85,19 @@ export default function MovimientosView() {
     }
   }
 
-  const getTipoMovimientoBadge = (tipo) => {
-    const colors = {
-      "Entrada": "bg-green-100 text-green-700",
-      "Salida": "bg-blue-100 text-blue-700",
-      "Carga": "bg-yellow-100 text-yellow-700",
-      "Descarga": "bg-orange-100 text-orange-700",
-      "Transferencia": "bg-purple-100 text-purple-700",
-      "Inspección": "bg-red-100 text-red-700"
-    }
-    return colors[tipo] || "bg-gray-100 text-gray-700"
-  }
-
-  const handleOpenModal = (movimiento) => {
-    if (movimiento) {
+  const handleOpenModal = (lote) => {
+    if (lote) {
       setFormData({
-        id_contenedor: movimiento.id_contenedor,
-        tipoMovimiento: movimiento.tipoMovimiento,
-        fechaMovimiento: movimiento.fechaMovimiento,
-        observaciones: movimiento.observaciones
+        id_contenedor: lote.id_contenedor,
+        id_producto: lote.id_producto,
+        cantidad: lote.cantidad
       })
-      setEditingId(movimiento.id)
+      setEditingId(lote.id)
     } else {
       setFormData({ 
         id_contenedor: "",
-        tipoMovimiento: "Entrada", 
-        fechaMovimiento: "", 
-        observaciones: "" 
+        id_producto: "",
+        cantidad: 1
       })
       setEditingId(null)
     }
@@ -116,9 +109,8 @@ export default function MovimientosView() {
     setEditingId(null)
     setFormData({ 
       id_contenedor: "",
-      tipoMovimiento: "Entrada", 
-      fechaMovimiento: "", 
-      observaciones: "" 
+      id_producto: "",
+      cantidad: 1
     })
   }
 
@@ -130,54 +122,49 @@ export default function MovimientosView() {
       setError(null)
       
       if (editingId) {
-        // Actualizar movimiento existente
-        await movimientosAPI.actualizar(editingId, formData)
+        // Actualizar lote existente
+        await lotesAPI.actualizar(editingId, formData)
       } else {
-        // Crear nuevo movimiento
-
-        const fechaObj = new Date(formData.fechaMovimiento);
-        const offset = fechaObj.getTimezoneOffset() * 60000;
-        const localISO = new Date(fechaObj - offset).toISOString().slice(0, 19);
-
-        const fechaOracle = localISO.replace("T", " ");
-
-        formData.fechaMovimiento = fechaOracle;
-        await movimientosAPI.crear(formData)
+        // Crear nuevo lote
+        await lotesAPI.crear(formData)
       }
       
-      // Recargar la lista de movimientos
+      // Recargar la lista de lotes
       await cargarDatos()
       handleCloseModal()
       
     } catch (err) {
-      console.error('Error al guardar movimiento:', err)
-      setError('Error al guardar el movimiento: ' + err.message)
+      console.error('Error al guardar lote:', err)
+      setError('Error al guardar el lote: ' + err.message)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleDelete = async (id, contenedor, tipo) => {
-    if (!confirm(`¿Está seguro de que desea eliminar el movimiento "${tipo}" del contenedor "${contenedor}"?`)) {
+  const handleDelete = async (id, contenedor, producto) => {
+    if (!confirm(`¿Está seguro de que desea eliminar el lote de "${producto}" del contenedor "${contenedor}"?`)) {
       return
     }
     
     try {
       setError(null)
-      await movimientosAPI.eliminar(id)
+      await lotesAPI.eliminar(id)
       await cargarDatos()
     } catch (err) {
-      console.error('Error al eliminar movimiento:', err)
-      setError('Error al eliminar el movimiento: ' + err.message)
+      console.error('Error al eliminar lote:', err)
+      setError('Error al eliminar el lote: ' + err.message)
     }
   }
+
+  // Obtener códigos únicos de contenedores para el filtro
+  const contenedoresUnicos = ["Todos", ...new Set(lotes.map(l => l.contenedor).filter(c => c))]
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando movimientos...</p>
+          <p className="mt-4 text-gray-600">Cargando lotes...</p>
         </div>
       </div>
     )
@@ -207,32 +194,22 @@ export default function MovimientosView() {
 
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
-          <p className="text-sm text-gray-600">Total de movimientos: {movimientosFiltrados.length}</p>
+          <p className="text-sm text-gray-600">Total de lotes: {lotesFiltrados.length}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <div className="flex gap-1 flex-wrap">
-            <button
-              onClick={() => setFiltroTipo("Todos")}
-              className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1 ${
-                filtroTipo === "Todos"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              <IconComponents.Filter />
-              Todos
-            </button>
-            {tiposMovimiento.map((tipo) => (
+            {contenedoresUnicos.slice(0, 6).map((contenedor) => (
               <button
-                key={tipo}
-                onClick={() => setFiltroTipo(tipo)}
+                key={contenedor}
+                onClick={() => setFiltroContenedor(contenedor)}
                 className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
-                  filtroTipo === tipo
+                  filtroContenedor === contenedor
                     ? "bg-blue-600 text-white border-blue-600"
                     : "border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                {tipo}
+                {contenedor === "Todos" && <IconComponents.Filter />}
+                {contenedor}
               </button>
             ))}
           </div>
@@ -242,14 +219,14 @@ export default function MovimientosView() {
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <IconComponents.Plus />
-            Registrar movimiento
+            Nuevo lote
           </button>
         </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Registro de Movimientos</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Gestión de Lotes</h3>
         </div>
         <div className="p-6">
           <div className="overflow-x-auto">
@@ -257,43 +234,35 @@ export default function MovimientosView() {
               <thead className="border-b border-gray-200">
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Contenedor</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo Movimiento</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha y Hora</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Observaciones</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Producto</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Cantidad</th>
                   <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {movimientosFiltrados.length === 0 ? (
+                {lotesFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="py-8 text-center text-gray-500">
-                      No hay movimientos {filtroTipo !== "Todos" ? `del tipo "${filtroTipo}"` : "registrados"}
+                    <td colSpan="4" className="py-8 text-center text-gray-500">
+                      No hay lotes {filtroContenedor !== "Todos" ? `en el contenedor "${filtroContenedor}"` : "registrados"}
                     </td>
                   </tr>
                 ) : (
-                  movimientosFiltrados.map((movimiento) => (
-                    <tr key={movimiento.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 text-gray-900 font-mono font-semibold">{movimiento.contenedor || '-'}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${getTipoMovimientoBadge(movimiento.tipoMovimiento)}`}
-                        >
-                          {movimiento.tipoMovimiento || '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 text-xs">{movimiento.fechaMovimiento || '-'}</td>
-                      <td className="py-3 px-4 text-gray-600 text-xs">{movimiento.observaciones || '-'}</td>
+                  lotesFiltrados.map((lote) => (
+                    <tr key={lote.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 text-gray-900 font-mono font-semibold">{lote.contenedor || '-'}</td>
+                      <td className="py-3 px-4 text-gray-700">{lote.producto || '-'}</td>
+                      <td className="py-3 px-4 text-gray-600">{lote.cantidad ? lote.cantidad.toLocaleString() : '-'}</td>
                       <td className="py-3 px-4">
                         <div className="flex justify-center gap-2">
                           <button
-                            onClick={() => handleOpenModal(movimiento)}
+                            onClick={() => handleOpenModal(lote)}
                             className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Editar"
                           >
                             <IconComponents.Edit2 />
                           </button>
                           <button
-                            onClick={() => handleDelete(movimiento.id, movimiento.contenedor, movimiento.tipoMovimiento)}
+                            onClick={() => handleDelete(lote.id, lote.contenedor, lote.producto)}
                             className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
                             title="Eliminar"
                           >
@@ -316,7 +285,7 @@ export default function MovimientosView() {
           <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-lg">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                {editingId ? "Editar Movimiento" : "Registrar Movimiento"}
+                {editingId ? "Editar Lote" : "Nuevo Lote"}
               </h3>
               <button 
                 onClick={handleCloseModal} 
@@ -346,41 +315,32 @@ export default function MovimientosView() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Tipo Movimiento *</label>
+                  <label className="text-sm font-medium text-gray-700">Producto *</label>
                   <select
                     required
-                    value={formData.tipoMovimiento}
-                    onChange={(e) => setFormData({ ...formData, tipoMovimiento: e.target.value })}
+                    value={formData.id_producto}
+                    onChange={(e) => setFormData({ ...formData, id_producto: e.target.value })}
                     disabled={submitting}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 disabled:bg-gray-100"
                   >
-                    {tiposMovimiento.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    <option value="">Seleccionar producto...</option>
+                    {productos.map((producto) => (
+                      <option key={producto.id} value={producto.id}>
+                        {producto.nombre}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Fecha y Hora</label>
+                  <label className="text-sm font-medium text-gray-700">Cantidad</label>
                   <input
-                    type="datetime-local"
-                    value={formData.fechaMovimiento}
-                    onChange={(e) => setFormData({ ...formData, fechaMovimiento: e.target.value })}
+                    type="number"
+                    min="1"
+                    value={formData.cantidad}
+                    onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
+                    placeholder="1"
                     disabled={submitting}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                  />
-                  <p className="text-xs text-gray-500">Si se deja vacío, se usará la fecha y hora actual</p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Observaciones</label>
-                  <textarea
-                    value={formData.observaciones}
-                    onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                    placeholder="Notas sobre el movimiento"
-                    disabled={submitting}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100"
-                    rows={3}
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -397,7 +357,7 @@ export default function MovimientosView() {
                     disabled={submitting}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                   >
-                    {submitting ? "Guardando..." : (editingId ? "Actualizar" : "Registrar")}
+                    {submitting ? "Guardando..." : (editingId ? "Actualizar" : "Crear")}
                   </button>
                 </div>
               </form>

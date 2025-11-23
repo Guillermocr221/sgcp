@@ -1,73 +1,91 @@
-import { useState } from "react"
-
-const initialEmbarcaciones = [
-  {
-    id: 1,
-    nombre: "SH-BANGKOK",
-    bandera: "Panamá",
-    fechaArribo: "2025-11-08",
-    fechaSalida: "2025-11-15",
-    capitán: "Juan Rodríguez",
-  },
-  {
-    id: 2,
-    nombre: "MAERSK-121",
-    bandera: "Dinamarca",
-    fechaArribo: "2025-11-10",
-    fechaSalida: "2025-11-18",
-    capitán: "Lars Eriksen",
-  },
-  {
-    id: 3,
-    nombre: "CMA-CGM-ANTOINE",
-    bandera: "Francia",
-    fechaArribo: "2025-11-12",
-    fechaSalida: "2025-11-20",
-    capitán: "Pierre Dubois",
-  },
-]
+import { useState, useEffect } from "react"
+import { embarcacionesAPI } from "../lib/api"
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus, faEdit, faTrash, faTimes, faShip, faAnchor } from '@fortawesome/free-solid-svg-icons'
 
 const IconComponents = {
-  Plus: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
-  ),
-  Edit2: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-    </svg>
-  ),
-  Trash2: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  ),
-  X: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
+  Plus: () => <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />,
+  Edit2: () => <FontAwesomeIcon icon={faEdit} className="w-4 h-4" />,
+  Trash2: () => <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />,
+  X: () => <FontAwesomeIcon icon={faTimes} className="w-5 h-5" />,
+  Ship: () => <FontAwesomeIcon icon={faShip} className="w-4 h-4" />,
+  Anchor: () => <FontAwesomeIcon icon={faAnchor} className="w-4 h-4" />
 }
 
 export default function EmbarcacionesView() {
-  const [embarcaciones, setEmbarcaciones] = useState(initialEmbarcaciones)
+  const [embarcaciones, setEmbarcaciones] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [filtro, setFiltro] = useState("Todas")
   const [formData, setFormData] = useState({
     nombre: "",
     bandera: "",
     fechaArribo: "",
     fechaSalida: "",
-    capitán: "",
   })
+
+  // Cargar embarcaciones al montar el componente
+  useEffect(() => {
+    cargarEmbarcaciones()
+  }, [])
+
+
+  // Función auxiliar para determinar el estado de la embarcación
+  const getEstadoEmbarcacion = (fechaArribo, fechaSalida) => {
+    const hoy = new Date()
+    const arribo = fechaArribo ? new Date(fechaArribo) : null
+    const salida = fechaSalida ? new Date(fechaSalida) : null
+
+    if (!arribo) return "Programada"
+    if (arribo > hoy) return "En tránsito"
+    if (!salida) return "En puerto"
+    if (salida > hoy) return "En puerto"
+    return "Finalizada"
+  }
+
+  // Filtrar embarcaciones por estado
+  const embarcacionesFiltradas = filtro === "Todas" 
+    ? embarcaciones 
+    : embarcaciones.filter(e => getEstadoEmbarcacion(e.fechaArribo, e.fechaSalida) === filtro)
+
+  const cargarEmbarcaciones = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await embarcacionesAPI.obtenerTodos()
+      
+      // Mapear los datos del backend al formato del frontend
+      const embarcacionesFormateadas = response.data.map(embarcacion => ({
+        id: embarcacion.ID_EMBARCACION, // id_embarcacion
+        nombre: embarcacion.NOMBRE, // nombre
+        bandera: embarcacion.BANDERA || "", // bandera
+        fechaArribo: (embarcacion.FECHA_ARRIBO), // fecha_arribo
+        fechaSalida: (embarcacion.FECHA_SALIDA), // fecha_salida
+      }))
+      
+      setEmbarcaciones(embarcacionesFormateadas)
+    } catch (err) {
+      console.error('Error al cargar embarcaciones:', err)
+      setError('Error al cargar las embarcaciones: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleOpenModal = (embarcacion) => {
     if (embarcacion) {
-      setFormData(embarcacion)
+      setFormData({
+        nombre: embarcacion.nombre,
+        bandera: embarcacion.bandera,
+        fechaArribo: embarcacion.fechaArribo || "",
+        fechaSalida: embarcacion.fechaSalida || "",
+      })
       setEditingId(embarcacion.id)
     } else {
-      setFormData({ nombre: "", bandera: "", fechaArribo: "", fechaSalida: "", capitán: "" })
+      setFormData({ nombre: "", bandera: "", fechaArribo: "", fechaSalida: "" })
       setEditingId(null)
     }
     setIsModalOpen(true)
@@ -76,35 +94,126 @@ export default function EmbarcacionesView() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setEditingId(null)
+    setFormData({ nombre: "", bandera: "", fechaArribo: "", fechaSalida: "" })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (editingId) {
-      setEmbarcaciones(embarcaciones.map((e) => (e.id === editingId ? { ...e, ...formData } : e)))
-    } else {
-      setEmbarcaciones([...embarcaciones, { id: Math.max(...embarcaciones.map((e) => e.id), 0) + 1, ...formData }])
+    
+    try {
+      setSubmitting(true)
+      setError(null)
+      
+      if (editingId) {
+        // Actualizar embarcación existente
+        await embarcacionesAPI.actualizar(editingId, formData)
+      } else {
+        // Crear nueva embarcación
+        await embarcacionesAPI.crear(formData)
+      }
+      
+      // Recargar la lista de embarcaciones
+      await cargarEmbarcaciones()
+      handleCloseModal()
+      
+    } catch (err) {
+      console.error('Error al guardar embarcación:', err)
+      setError('Error al guardar la embarcación: ' + err.message)
+    } finally {
+      setSubmitting(false)
     }
-    handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (confirm("¿Está seguro de que desea eliminar esta embarcación?")) {
-      setEmbarcaciones(embarcaciones.filter((e) => e.id !== id))
+  const handleDelete = async (id, nombre) => {
+    if (!confirm(`¿Está seguro de que desea eliminar la embarcación "${nombre}"?`)) {
+      return
     }
+    
+    try {
+      setError(null)
+      await embarcacionesAPI.eliminar(id)
+      await cargarEmbarcaciones()
+    } catch (err) {
+      console.error('Error al eliminar embarcación:', err)
+      setError('Error al eliminar la embarcación: ' + err.message)
+    }
+  }
+
+  const getEstadoBadge = (fechaArribo, fechaSalida) => {
+    const estado = getEstadoEmbarcacion(fechaArribo, fechaSalida)
+    const colors = {
+      "Programada": "bg-gray-100 text-gray-700",
+      "En tránsito": "bg-blue-100 text-blue-700", 
+      "En puerto": "bg-green-100 text-green-700",
+      "Finalizada": "bg-gray-100 text-gray-500"
+    }
+    return colors[estado] || "bg-gray-100 text-gray-700"
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando embarcaciones...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600">Total de embarcaciones: {embarcaciones.length}</p>
-        <button
-          onClick={() => handleOpenModal()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          <IconComponents.Plus />
-          Nueva embarcación
-        </button>
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm text-red-700">{error}</p>
+              <button 
+                onClick={cargarEmbarcaciones}
+                className="mt-2 text-sm text-red-600 hover:text-red-500 underline"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <p className="text-sm text-gray-600">Total de embarcaciones: {embarcacionesFiltradas.length}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1">
+            {["Todas", "En puerto", "En tránsito", "Programada", "Finalizada"].map((estado) => (
+              <button
+                key={estado}
+                onClick={() => setFiltro(estado)}
+                className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1 ${
+                  filtro === estado
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                {estado === "En puerto" && <IconComponents.Anchor />}
+                {estado === "En tránsito" && <IconComponents.Ship />}
+                {estado}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => handleOpenModal()}
+            disabled={submitting}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <IconComponents.Plus />
+            Nueva embarcación
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -118,49 +227,61 @@ export default function EmbarcacionesView() {
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Bandera</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Capitán</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Arribo</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900">Salida</th>
                   <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {embarcaciones.map((embarcacion) => (
-                  <tr
-                    key={embarcacion.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-gray-900 font-medium">{embarcacion.nombre}</td>
-                    <td className="py-3 px-4 text-gray-700">{embarcacion.bandera}</td>
-                    <td className="py-3 px-4 text-gray-600">{embarcacion.capitán}</td>
-                    <td className="py-3 px-4 text-gray-600 text-xs">{embarcacion.fechaArribo}</td>
-                    <td className="py-3 px-4 text-gray-600 text-xs">{embarcacion.fechaSalida}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(embarcacion)}
-                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <IconComponents.Edit2 />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(embarcacion.id)}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
-                          title="Eliminar"
-                        >
-                          <IconComponents.Trash2 />
-                        </button>
-                      </div>
+                {embarcacionesFiltradas.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-gray-500">
+                      No hay embarcaciones {filtro !== "Todas" ? `en estado "${filtro}"` : "registradas"}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  embarcacionesFiltradas.map((embarcacion) => (
+                    <tr key={embarcacion.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 text-gray-900 font-medium">{embarcacion.nombre}</td>
+                      <td className="py-3 px-4 text-gray-700">{embarcacion.bandera || '-'}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${getEstadoBadge(embarcacion.fechaArribo, embarcacion.fechaSalida)}`}
+                        >
+                          {getEstadoEmbarcacion(embarcacion.fechaArribo, embarcacion.fechaSalida)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">{embarcacion.fechaArribo || '-'}</td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">{embarcacion.fechaSalida || '-'}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleOpenModal(embarcacion)}
+                            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <IconComponents.Edit2 />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(embarcacion.id, embarcacion.nombre)}
+                            className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600"
+                            title="Eliminar"
+                          >
+                            <IconComponents.Trash2 />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-lg">
@@ -171,6 +292,7 @@ export default function EmbarcacionesView() {
               <button 
                 onClick={handleCloseModal} 
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
+                disabled={submitting}
               >
                 <IconComponents.X />
               </button>
@@ -178,71 +300,63 @@ export default function EmbarcacionesView() {
             <div className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Nombre</label>
+                  <label className="text-sm font-medium text-gray-700">Nombre *</label>
                   <input
                     required
                     type="text"
                     value={formData.nombre}
                     onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                     placeholder="Ej: MAERSK-121"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Bandera</label>
                   <input
-                    required
                     type="text"
                     value={formData.bandera}
                     onChange={(e) => setFormData({ ...formData, bandera: e.target.value })}
                     placeholder="Ej: Panamá"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Capitán</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.capitán}
-                    onChange={(e) => setFormData({ ...formData, capitán: e.target.value })}
-                    placeholder="Nombre del capitán"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Fecha Arribo</label>
                   <input
-                    required
                     type="date"
                     value={formData.fechaArribo}
                     onChange={(e) => setFormData({ ...formData, fechaArribo: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Fecha Salida</label>
                   <input
-                    required
                     type="date"
                     value={formData.fechaSalida}
                     onChange={(e) => setFormData({ ...formData, fechaSalida: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={submitting}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+                    disabled={submitting}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit" 
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                   >
-                    {editingId ? "Actualizar" : "Crear"}
+                    {submitting ? "Guardando..." : (editingId ? "Actualizar" : "Crear")}
                   </button>
                 </div>
               </form>
